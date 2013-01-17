@@ -4,12 +4,14 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+import android.app.Activity;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
+import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.Animation.AnimationListener;
 import android.view.animation.TranslateAnimation;
@@ -19,21 +21,31 @@ import android.widget.TextView;
 
 public class PullToRefreshListView extends ListView {
 
+	private static final int ANIMATION_DURATION = 700;
 	private int mState = 0;
 	private float mPrevY = 0f;
+	private float mPrevX = 0f;
+	private static int sScreenWidth = 0;
+	private int draggingPosition = -1;
 	private int mCurrentMargin = 0;
-	private static final int IDLE = 0;
-	private static final int PULLING = 1;
-	private static final int REFRESHING = 2;
-	private static final float SCROLL_RESISTANCE = 1.5f;
-	private static final int RELEASE_TO_REFRESH = 3;
+	private int mRowCurrentMargin = 0;
 	private View mHeaderView;
 	private int headerViewHeight;
 	private LinearLayout mHeaderContent;
 	private PullToRefreshListner mListener;
+	private static final float SCROLL_RESISTANCE = 1.25f;
+
+	private static final int IDLE = 0;
+	private static final int PULLING = 1;
+	private static final int REFRESHING = 2;
+	private static final int RELEASE_TO_REFRESH = 3;
+	private static final int ITEM_DRAGGING = 4;
+	private static final int DRAGGING = 5;
 
 	public interface PullToRefreshListner {
 		public void onRefreshTriggered();
+
+		public void onItemRemoved(int pos);
 	}
 
 	private OnGlobalLayoutListener mGlobalLayoutChangeListener = new OnGlobalLayoutListener() {
@@ -49,6 +61,7 @@ public class PullToRefreshListView extends ListView {
 		}
 	};
 	private TextView mRefreshState;
+	private View mDraggableView;
 
 	public PullToRefreshListView(Context context, AttributeSet attrs,
 			int defStyle) {
@@ -62,6 +75,7 @@ public class PullToRefreshListView extends ListView {
 	}
 
 	private void init() {
+		DisplayMetrics dm = new DisplayMetrics();
 		mHeaderView = inflate(getContext(), R.layout.refresh_item, null);
 		mHeaderContent = (LinearLayout) mHeaderView
 				.findViewById(R.id.header_content);
@@ -69,6 +83,9 @@ public class PullToRefreshListView extends ListView {
 		addHeaderView(mHeaderView);
 		mHeaderView.getViewTreeObserver().addOnGlobalLayoutListener(
 				mGlobalLayoutChangeListener);
+		((WindowManager) getContext().getSystemService(Activity.WINDOW_SERVICE))
+				.getDefaultDisplay().getMetrics(dm);
+		sScreenWidth = dm.widthPixels;
 	}
 
 	private void setHeaderMargin(int margin) {
@@ -79,25 +96,51 @@ public class PullToRefreshListView extends ListView {
 		mHeaderContent.setLayoutParams(params);
 	}
 
+	private void setRowMargin(int margin, View v) {
+		mRowCurrentMargin = margin;
+		MarginLayoutParams params = (MarginLayoutParams) v.getLayoutParams();
+		params.setMargins(margin, 0, -margin, 0);
+		v.setLayoutParams(params);
+	}
+
+	private void animateRow(int margin, final View v) {
+		TranslateAnimation ta;
+		ta = new TranslateAnimation(0, margin, 0, 0);
+		ta.setDuration(ANIMATION_DURATION);
+		v.startAnimation(ta);
+		v.postDelayed(new Runnable() {
+			@Override
+			public void run() {
+				setRowMargin(0, v);
+			}
+		}, ANIMATION_DURATION);
+	}
+
 	@Override
 	public boolean onTouchEvent(MotionEvent ev) {
 		int action = ev.getAction();
-		float diff;
+		float diffX, diffY;
 		switch (action) {
 		case MotionEvent.ACTION_DOWN:
 			if (getFirstVisiblePosition() == 0 && mState == IDLE) {
 				mState = PULLING;
-				mPrevY = ev.getY();
 			} else {
-				mState = IDLE;
+				mState = DRAGGING;
 			}
+			mPrevY = ev.getY();
+			mPrevX = ev.getX();
+			draggingPosition = pointToPosition((int) mPrevX, (int) mPrevY);			
+			mDraggableView = getChildAt(draggingPosition-getFirstVisiblePosition()).findViewById(
+					R.id.item_content);
 			break;
 		case MotionEvent.ACTION_MOVE:
-			if (mState == PULLING || mState == RELEASE_TO_REFRESH) {
-				diff = ev.getY() - mPrevY;
-				mPrevY = ev.getY();
+			diffY = ev.getY() - mPrevY;
+			mPrevY = ev.getY();
+			diffX = ev.getX() - mPrevX;
+			mPrevX = ev.getX();
+			if ((mState == PULLING || mState == RELEASE_TO_REFRESH)) {
 				int newMargin = Math.max(mCurrentMargin
-						+ (int) (diff / SCROLL_RESISTANCE), -headerViewHeight);
+						+ (int) (diffY / SCROLL_RESISTANCE), -headerViewHeight);
 				if (newMargin != mCurrentMargin) {
 					setHeaderMargin(newMargin);
 					if (mState == PULLING && newMargin > headerViewHeight) {
@@ -107,7 +150,24 @@ public class PullToRefreshListView extends ListView {
 						mState = PULLING;
 					}
 					return true;
+				} else if (mCurrentMargin == -headerViewHeight
+						&& Math.abs(diffX) > 15f) {
+					setRowMargin(mRowCurrentMargin + (int) diffX,
+							mDraggableView);
+					mState = ITEM_DRAGGING;
+					return true;
 				}
+			} else if (mState == DRAGGING) {
+				if (mCurrentMargin == -headerViewHeight
+						&& Math.abs(diffX) > 10f) {
+					setRowMargin(mRowCurrentMargin + (int) diffX,
+							mDraggableView);
+					mState = ITEM_DRAGGING;
+					return true;
+				}
+			} else if (mState == ITEM_DRAGGING) {
+				setRowMargin(mRowCurrentMargin + (int) diffX, mDraggableView);
+				return true;
 			}
 			break;
 		case MotionEvent.ACTION_UP:
@@ -117,21 +177,38 @@ public class PullToRefreshListView extends ListView {
 					hideHeader(headerViewHeight, mCurrentMargin);
 					return true;
 				} else if (mState == RELEASE_TO_REFRESH) {
+					mRefreshState.setText("Refreshing...");
 					mState = REFRESHING;
+					hideHeader(0, mCurrentMargin);
 					if (mListener != null) {
 						mListener.onRefreshTriggered();
 					}
-					hideHeader(0, mCurrentMargin);
-					mRefreshState.setText("Refreshing...");
-					postDelayed(new Runnable() {
-
-						@Override
-						public void run() {
-							refreshDone();
-						}
-					}, 3000);
 				}
 			}
+
+			if (mState == ITEM_DRAGGING) {
+				if (Math.abs(mRowCurrentMargin) < sScreenWidth / 2) {
+					animateRow(-mRowCurrentMargin, mDraggableView);
+				} else {
+					if (mRowCurrentMargin > 0) {
+						animateRow(sScreenWidth - mRowCurrentMargin,
+								mDraggableView);
+					} else {
+						animateRow(-(sScreenWidth + mRowCurrentMargin),
+								mDraggableView);
+					}
+					mDraggableView.postDelayed(new Runnable() {
+						@Override
+						public void run() {
+							mListener.onItemRemoved(draggingPosition-1);
+						}
+					}, ANIMATION_DURATION);
+				}
+				mRowCurrentMargin = 0;
+				mDraggableView = null;
+				mState = IDLE;
+			}
+
 			break;
 		default:
 			break;
@@ -142,7 +219,7 @@ public class PullToRefreshListView extends ListView {
 	private void hideHeader(final int headerHeight, final int margin) {
 		TranslateAnimation ta = new TranslateAnimation(0, 0, 0,
 				-(headerHeight + margin));
-		ta.setDuration(700);
+		ta.setDuration(ANIMATION_DURATION);
 		ta.setAnimationListener(new AnimationListener() {
 
 			@Override
@@ -170,9 +247,8 @@ public class PullToRefreshListView extends ListView {
 	public void refreshDone() {
 		mState = IDLE;
 		mRefreshState.setText(String.format(Locale.getDefault(),
-				"Last refreshed: %s", (new SimpleDateFormat(
-						"dd/MM/yyyy")).format(new Date(System
-						.currentTimeMillis()))));
+				"Last refreshed: %s", (new SimpleDateFormat("dd/MM/yyyy"))
+						.format(new Date(System.currentTimeMillis()))));
 		hideHeader(headerViewHeight, mCurrentMargin);
 	}
 
