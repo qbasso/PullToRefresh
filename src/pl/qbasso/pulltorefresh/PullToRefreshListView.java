@@ -107,13 +107,44 @@ public class PullToRefreshListView extends ListView {
 		TranslateAnimation ta;
 		ta = new TranslateAnimation(0, margin, 0, 0);
 		ta.setDuration(ANIMATION_DURATION);
-		v.startAnimation(ta);
-		v.postDelayed(new Runnable() {
+		ta.setAnimationListener(new AnimationListener() {
+
 			@Override
-			public void run() {
+			public void onAnimationStart(Animation animation) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onAnimationRepeat(Animation animation) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onAnimationEnd(Animation animation) {
+				// TODO Auto-generated method stub
 				setRowMargin(0, v);
 			}
-		}, ANIMATION_DURATION);
+		});
+		v.startAnimation(ta);
+
+		// v.postDelayed(new Runnable() {
+		// @Override
+		// public void run() {
+		// setRowMargin(0, v);
+		// }
+		// }, ANIMATION_DURATION);
+		// if (margin > 0) {
+		// for (int i = 1; i <= margin; i++) {
+		// setRowMargin(mRowCurrentMargin + 1, v);
+		//
+		// }
+		// } else {
+		// for (int i = -1; i >= margin; i--) {
+		// setRowMargin(mRowCurrentMargin - 1, v);
+		// }
+		// }
 	}
 
 	@Override
@@ -129,8 +160,9 @@ public class PullToRefreshListView extends ListView {
 			}
 			mPrevY = ev.getY();
 			mPrevX = ev.getX();
-			draggingPosition = pointToPosition((int) mPrevX, (int) mPrevY);			
-			mDraggableView = getChildAt(draggingPosition-getFirstVisiblePosition()).findViewById(
+			draggingPosition = pointToPosition((int) mPrevX, (int) mPrevY);
+			mDraggableView = getChildAt(
+					draggingPosition - getFirstVisiblePosition()).findViewById(
 					R.id.item_content);
 			break;
 		case MotionEvent.ACTION_MOVE:
@@ -200,7 +232,7 @@ public class PullToRefreshListView extends ListView {
 					mDraggableView.postDelayed(new Runnable() {
 						@Override
 						public void run() {
-							mListener.onItemRemoved(draggingPosition-1);
+							mListener.onItemRemoved(draggingPosition - 1);
 						}
 					}, ANIMATION_DURATION);
 				}
@@ -220,23 +252,14 @@ public class PullToRefreshListView extends ListView {
 		TranslateAnimation ta = new TranslateAnimation(0, 0, 0,
 				-(headerHeight + margin));
 		ta.setDuration(ANIMATION_DURATION);
-		ta.setAnimationListener(new AnimationListener() {
-
+		mHeaderView.startAnimation(ta);
+		mHeaderView.postDelayed(new Runnable() {
 			@Override
-			public void onAnimationStart(Animation animation) {
-			}
-
-			@Override
-			public void onAnimationRepeat(Animation animation) {
-			}
-
-			@Override
-			public void onAnimationEnd(Animation animation) {
+			public void run() {
 				setHeaderMargin(-(headerHeight));
 				scrollTo(0, 0);
 			}
-		});
-		mHeaderView.startAnimation(ta);
+		}, ANIMATION_DURATION);
 
 	}
 
@@ -247,7 +270,7 @@ public class PullToRefreshListView extends ListView {
 	public void refreshDone() {
 		mState = IDLE;
 		mRefreshState.setText(String.format(Locale.getDefault(),
-				"Last refreshed: %s", (new SimpleDateFormat("dd/MM/yyyy"))
+				"Last refreshed: %s", (new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()))
 						.format(new Date(System.currentTimeMillis()))));
 		hideHeader(headerViewHeight, mCurrentMargin);
 	}
