@@ -158,6 +158,7 @@ public class PullToRefreshListView extends ListView {
 			} else {
 				mState = DRAGGING;
 			}
+
 			mPrevY = ev.getY();
 			mPrevX = ev.getX();
 			draggingPosition = pointToPosition((int) mPrevX, (int) mPrevY);
@@ -191,7 +192,7 @@ public class PullToRefreshListView extends ListView {
 				}
 			} else if (mState == DRAGGING) {
 				if (mCurrentMargin == -headerViewHeight
-						&& Math.abs(diffX) > 10f) {
+						&& Math.abs(diffX) > 20f) {
 					setRowMargin(mRowCurrentMargin + (int) diffX,
 							mDraggableView);
 					mState = ITEM_DRAGGING;
@@ -270,8 +271,9 @@ public class PullToRefreshListView extends ListView {
 	public void refreshDone() {
 		mState = IDLE;
 		mRefreshState.setText(String.format(Locale.getDefault(),
-				"Last refreshed: %s", (new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()))
-						.format(new Date(System.currentTimeMillis()))));
+				"Last refreshed: %s", (new SimpleDateFormat("dd/MM/yyyy",
+						Locale.getDefault())).format(new Date(System
+						.currentTimeMillis()))));
 		hideHeader(headerViewHeight, mCurrentMargin);
 	}
 
