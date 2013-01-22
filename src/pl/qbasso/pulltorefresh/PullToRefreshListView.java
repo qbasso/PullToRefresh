@@ -216,6 +216,8 @@ public class PullToRefreshListView extends ListView {
 					if (mListener != null) {
 						mListener.onRefreshTriggered();
 					}
+				} else {
+					mState = IDLE;
 				}
 			}
 
