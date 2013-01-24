@@ -162,9 +162,12 @@ public class PullToRefreshListView extends ListView {
 			mPrevY = ev.getY();
 			mPrevX = ev.getX();
 			draggingPosition = pointToPosition((int) mPrevX, (int) mPrevY);
-			mDraggableView = getChildAt(
-					draggingPosition - getFirstVisiblePosition()).findViewById(
-					R.id.item_content);
+			View v = getChildAt(draggingPosition - getFirstVisiblePosition());
+			if (v != null) {
+				mDraggableView = v.findViewById(R.id.item_content);
+			} else {
+				mDraggableView = null;
+			}
 			break;
 		case MotionEvent.ACTION_MOVE:
 			diffY = ev.getY() - mPrevY;
@@ -183,7 +186,7 @@ public class PullToRefreshListView extends ListView {
 						mState = PULLING;
 					}
 					return true;
-				} else if (mCurrentMargin == -headerViewHeight
+				} else if (mDraggableView!=null && mCurrentMargin == -headerViewHeight
 						&& Math.abs(diffX) > 15f) {
 					setRowMargin(mRowCurrentMargin + (int) diffX,
 							mDraggableView);
@@ -191,14 +194,14 @@ public class PullToRefreshListView extends ListView {
 					return true;
 				}
 			} else if (mState == DRAGGING) {
-				if (mCurrentMargin == -headerViewHeight
+				if (mDraggableView!=null && mCurrentMargin == -headerViewHeight
 						&& Math.abs(diffX) > 20f) {
 					setRowMargin(mRowCurrentMargin + (int) diffX,
 							mDraggableView);
 					mState = ITEM_DRAGGING;
 					return true;
 				}
-			} else if (mState == ITEM_DRAGGING) {
+			} else if (mDraggableView!=null && mState == ITEM_DRAGGING) {
 				setRowMargin(mRowCurrentMargin + (int) diffX, mDraggableView);
 				return true;
 			}
@@ -208,7 +211,6 @@ public class PullToRefreshListView extends ListView {
 				if (mState == PULLING) {
 					mState = IDLE;
 					hideHeader(headerViewHeight, mCurrentMargin);
-					return true;
 				} else if (mState == RELEASE_TO_REFRESH) {
 					mRefreshState.setText("Refreshing...");
 					mState = REFRESHING;
@@ -216,12 +218,12 @@ public class PullToRefreshListView extends ListView {
 					if (mListener != null) {
 						mListener.onRefreshTriggered();
 					}
-				} else {
-					mState = IDLE;
-				}
+				} // else {
+				// mState = IDLE;
+				// }
 			}
 
-			if (mState == ITEM_DRAGGING) {
+			if (mDraggableView!=null && mState == ITEM_DRAGGING) {
 				if (Math.abs(mRowCurrentMargin) < sScreenWidth / 2) {
 					animateRow(-mRowCurrentMargin, mDraggableView);
 				} else {
@@ -242,6 +244,8 @@ public class PullToRefreshListView extends ListView {
 				mRowCurrentMargin = 0;
 				mDraggableView = null;
 				mState = IDLE;
+			} else {
+				mState = IDLE;
 			}
 
 			break;
@@ -256,13 +260,33 @@ public class PullToRefreshListView extends ListView {
 				-(headerHeight + margin));
 		ta.setDuration(ANIMATION_DURATION);
 		mHeaderView.startAnimation(ta);
-		mHeaderView.postDelayed(new Runnable() {
+		ta.setAnimationListener(new AnimationListener() {
+			
 			@Override
-			public void run() {
+			public void onAnimationStart(Animation animation) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onAnimationRepeat(Animation animation) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void onAnimationEnd(Animation animation) {
+				// TODO Auto-generated method stub
 				setHeaderMargin(-(headerHeight));
 				scrollTo(0, 0);
+
 			}
-		}, ANIMATION_DURATION);
+		});
+		// mHeaderView.postDelayed(new Runnable() {
+		// @Override
+		// public void run() {
+		// }
+		// }, ANIMATION_DURATION);
 
 	}
 
@@ -276,7 +300,8 @@ public class PullToRefreshListView extends ListView {
 				"Last refreshed: %s", (new SimpleDateFormat("dd/MM/yyyy",
 						Locale.getDefault())).format(new Date(System
 						.currentTimeMillis()))));
-		hideHeader(headerViewHeight, mCurrentMargin);
+		// hideHeader(headerViewHeight, mCurrentMargin);
+		setHeaderMargin(-headerViewHeight);
 	}
 
 }
