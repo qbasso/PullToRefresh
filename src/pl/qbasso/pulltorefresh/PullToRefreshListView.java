@@ -244,6 +244,7 @@ public class PullToRefreshListView extends ListView {
 				mRowCurrentMargin = 0;
 				mDraggableView = null;
 				mState = IDLE;
+				return true;
 			} else {
 				mState = IDLE;
 			}
