@@ -44,12 +44,10 @@ public class PullToRefreshListView extends ListView {
 
 	public interface PullToRefreshListner {
 		public void onRefreshTriggered();
-
 		public void onItemRemoved(int pos);
 	}
 
 	private OnGlobalLayoutListener mGlobalLayoutChangeListener = new OnGlobalLayoutListener() {
-
 		@Override
 		public void onGlobalLayout() {
 			headerViewHeight = mHeaderView.getHeight();
@@ -162,7 +160,8 @@ public class PullToRefreshListView extends ListView {
 			mPrevY = ev.getY();
 			mPrevX = ev.getX();
 			draggingPosition = pointToPosition((int) mPrevX, (int) mPrevY);
-			View v = getChildAt(draggingPosition - getFirstVisiblePosition());
+			int rowPos = draggingPosition - getFirstVisiblePosition();
+			View v = getChildAt(rowPos);
 			if (v != null) {
 				mDraggableView = v.findViewById(R.id.item_content);
 			} else {

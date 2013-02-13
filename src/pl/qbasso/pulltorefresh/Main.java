@@ -52,12 +52,11 @@ public class Main extends Activity {
 					}
 				}
 			}).start();
-
 		}
 
 		@Override
 		public void onItemRemoved(int pos) {
-			items.remove(pos);
+			adapter.remove(items.get(pos));
 			adapter.notifyDataSetChanged();
 		}
 	};
@@ -149,7 +148,6 @@ public class Main extends Activity {
 			@Override
 			public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 					long arg3) {
-				startActivity(new Intent(Main.this, Main.class));
 				
 			}
 		});
