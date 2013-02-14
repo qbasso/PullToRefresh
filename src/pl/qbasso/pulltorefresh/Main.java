@@ -58,6 +58,7 @@ public class Main extends Activity {
 		public void onItemRemoved(int pos) {
 			adapter.remove(items.get(pos));
 			adapter.notifyDataSetChanged();
+			
 		}
 	};
 	protected String accountName;
